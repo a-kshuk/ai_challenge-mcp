@@ -1,0 +1,85 @@
+import { sequelize } from "./index";
+import { User } from "./models/user.model";
+import { Task } from "./models/task.model";
+import { LaborCosts, ActivityType } from "./models/laborCosts.model";
+import { initializeDatabase } from "./index";
+
+// Моковые данные
+const mockUsers = [
+  { firstName: "Иван", lastName: "Иванов", nickname: "ivan_i" },
+  { firstName: "Петр", lastName: "Петров", nickname: "petr_p" },
+  { firstName: "Анна", lastName: "Сидорова", nickname: "anna_s" },
+];
+
+const mockTasks = [
+  {
+    title: "Разработка API",
+    description: "Создать маршруты и контроллеры",
+    isClosed: false,
+  },
+  {
+    title: "Тестирование",
+    description: "Написать unit-тесты",
+    isClosed: false,
+  },
+  { title: "Документация", description: "Обновить README", isClosed: true },
+];
+
+const mockLaborCosts = [
+  {
+    userId: 1,
+    taskId: 1,
+    time: 120,
+    activity: ActivityType.Development,
+    details: "Реализация маршрутов",
+  },
+  {
+    userId: 1,
+    taskId: 1,
+    time: 60,
+    activity: ActivityType.Testing,
+    details: "Покрытие тестами",
+  },
+  {
+    userId: 2,
+    taskId: 2,
+    time: 90,
+    activity: ActivityType.Development,
+    details: "Настройка Jest",
+  },
+  {
+    userId: 3,
+    taskId: 3,
+    time: 30,
+    activity: ActivityType.Design,
+    details: "Обновление структуры",
+  },
+];
+
+/**
+ * Запускает тестовую базу данных и заполняет её моками
+ */
+export async function setupTestDB() {
+  await initializeDatabase();
+  await sequelize.sync({ force: true });
+
+  const users = await Promise.all(mockUsers.map((user) => User.create(user)));
+  const tasks = await Promise.all(mockTasks.map((task) => Task.create(task)));
+  const laborCosts = await Promise.all(
+    mockLaborCosts.map((cost) => LaborCosts.create(cost))
+  );
+
+  console.log("✅ Тестовая БД запущена. Добавлено:");
+  console.log(`👤 Пользователи: ${users.length}`);
+  console.log(`📝 Задачи: ${tasks.length}`);
+  console.log(`⏱️  Трудозатраты: ${laborCosts.length}`);
+
+  return { users, tasks, laborCosts };
+}
+
+/**
+ * Закрывает соединение с БД
+ */
+export async function closeTestDB() {
+  await sequelize.close();
+}
