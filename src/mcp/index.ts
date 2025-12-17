@@ -21,8 +21,20 @@ server.registerTool(
     },
   },
   async (req) => {
-    await weatherService.getWeather(req.city);
-    return { content: [{ type: "text", text: `Сообщение отправлено` }] };
+    const data = await weatherService.getWeather(req.city);
+    return {
+      content: [
+        {
+          type: "text",
+          text: `
+1. Проанализируй данные в формате json. 
+2. Выведи информацию о погоде
+3. Напиши как лучше одеться для выхода на улицу
+
+data: ${data}`,
+        },
+      ],
+    };
   }
 );
 
