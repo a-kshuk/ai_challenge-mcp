@@ -16,6 +16,7 @@ interface LaborCostsAttributes {
   time: number;
   details?: string;
   activity: ActivityType;
+  date: string | Date; // 👈 Обязательное поле: дата трудозатрат
 }
 
 class LaborCosts
@@ -28,6 +29,7 @@ class LaborCosts
   public time!: number;
   public details?: string;
   public activity!: ActivityType;
+  public date!: Date; // 👈 Поле добавлено и обязательно
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -84,6 +86,11 @@ export function initLaborCostsModel(sequelize: Sequelize) {
         ),
         allowNull: false,
       },
+      date: {
+        type: DataTypes.DATEONLY, // Хранит только дату (без времени)
+        allowNull: false, // 👈 Обязательное поле
+        defaultValue: DataTypes.NOW, // Значение по умолчанию — сегодня
+      },
     },
     {
       sequelize,
@@ -93,5 +100,4 @@ export function initLaborCostsModel(sequelize: Sequelize) {
   );
 }
 
-// ✅ Экспортируем и модель, и тип
 export { LaborCosts };

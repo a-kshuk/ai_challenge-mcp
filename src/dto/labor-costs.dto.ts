@@ -9,6 +9,7 @@ export interface CreateLaborCostDto {
   time: number;
   activity: ActivityType;
   details?: string;
+  date: string;
 }
 
 /**
@@ -18,6 +19,7 @@ export interface UpdateLaborCostDto {
   id: number;
   time?: number;
   details?: string;
+  date: string;
 }
 
 /**
@@ -30,6 +32,7 @@ export interface LaborCostResponseDto {
   time: number;
   details: string | null;
   activity: ActivityType;
+  date: string;
   createdAt: string;
   updatedAt: string;
 }

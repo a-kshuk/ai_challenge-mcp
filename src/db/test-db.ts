@@ -4,6 +4,12 @@ import { Task } from "./models/task.model";
 import { LaborCosts, ActivityType } from "./models/laborCosts.model";
 import { initializeDatabase } from "./index";
 
+// Получаем текущую дату в формате YYYY-MM-DD
+const today = new Date().toISOString().split("T")[0];
+
+// Получаем вчерашнюю дату
+const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]; // 86400000 = 24 часа в мс
+
 // Моковые данные
 const mockUsers = [
   { firstName: "Иван", lastName: "Иванов", nickname: "ivan_i" },
@@ -32,6 +38,7 @@ const mockLaborCosts = [
     time: 120,
     activity: ActivityType.Development,
     details: "Реализация маршрутов",
+    date: today,
   },
   {
     userId: 1,
@@ -39,6 +46,7 @@ const mockLaborCosts = [
     time: 60,
     activity: ActivityType.Testing,
     details: "Покрытие тестами",
+    date: today,
   },
   {
     userId: 2,
@@ -46,6 +54,7 @@ const mockLaborCosts = [
     time: 90,
     activity: ActivityType.Development,
     details: "Настройка Jest",
+    date: today,
   },
   {
     userId: 3,
@@ -53,6 +62,7 @@ const mockLaborCosts = [
     time: 30,
     activity: ActivityType.Design,
     details: "Обновление структуры",
+    date: yesterday,
   },
 ];
 
