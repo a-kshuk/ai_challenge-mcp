@@ -1,9 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import z from "zod";
-import { LogService } from "../services/LogService";
 
-const logService = new LogService();
+import { WeatherService } from "../services/WeatherServices";
+
+const weatherService = new WeatherService();
 
 const server = new McpServer({
   name: "demo-server",
@@ -11,16 +12,16 @@ const server = new McpServer({
 });
 
 server.registerTool(
-  "save_log",
+  "get_weather_forecast",
   {
-    title: "Сохранение логов",
-    description: "Записывает в логи переданный текст. Поле текста обязательное",
+    title: "Получение прогноза погоды",
+    description: "Получите прогноз погода для выбранного города",
     inputSchema: {
-      text: z.string(),
+      city: z.string(),
     },
   },
   async (req) => {
-    await logService.saveLog(req.text);
+    await weatherService.getWeather(req.city);
     return { content: [{ type: "text", text: `Сообщение отправлено` }] };
   }
 );
