@@ -10,7 +10,8 @@
     "mcp": "node dist/mcp/index.js",
     "mcp-inspect": "mcp-inspector yarn mcp",
     "mock-bd": "node dist/db/test-db.js",
-    "mock-bd:build": "node dist/test-env"
+    "mock-bd:build": "node dist/test-env",
+    "ts": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [],
   "author": "",

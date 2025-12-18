@@ -30,7 +30,7 @@ export interface LaborCostResponseDto {
   userId: number;
   taskId: number;
   time: number;
-  details: string | null;
+  details?: string;
   activity: ActivityType;
   date: string;
   createdAt: string;

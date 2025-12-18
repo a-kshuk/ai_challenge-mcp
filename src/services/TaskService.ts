@@ -114,12 +114,12 @@ export class TaskService {
   /**
    * Преобразует модель в Response DTO
    */
-  private toResponseDto(data: any): TaskResponseDto {
+  private toResponseDto(data: Task): TaskResponseDto {
     return {
       id: data.id,
       title: data.title,
       description: data.description,
-      isClosed: data.is_close,
+      isClosed: data.isClosed,
       createdAt: data.createdAt.toISOString(),
       updatedAt: data.updatedAt.toISOString(),
     };

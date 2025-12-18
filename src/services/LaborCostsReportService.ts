@@ -67,9 +67,7 @@ export class LaborCostsReportService {
     const result: LaborCostsReportEntry[] = [];
 
     for (const user of users) {
-      const costs = userCostsMap.get(user.id);
-      if (!costs || costs.length === 0) continue;
-
+      const costs = userCostsMap.get(user.id) || [];
       const fullName = this.getFullName(user);
 
       const tasks = costs.map((cost) => {

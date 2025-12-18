@@ -10,41 +10,6 @@ import { Op } from "sequelize";
 
 export class LaborCostsService {
   /**
-   * Добавить новые трудозатраты
-   */
-  async addLaborCost(dto: CreateLaborCostDto) {
-    const { userId, taskId, time, activity, details, date } = dto;
-
-    const user = await User.findByPk(userId);
-    if (!user) {
-      throw new Error(`Пользователь с ID ${userId} не найден`);
-    }
-
-    const task = await Task.findByPk(taskId);
-    if (!task) {
-      throw new Error(`Задача с ID ${taskId} не найдена`);
-    }
-
-    const costDate = date ? new Date(date) : null;
-    if (!costDate || isNaN(costDate.getTime())) {
-      throw new Error(
-        "Поле 'date' обязательно и должно быть корректной датой в формате YYYY-MM-DD"
-      );
-    }
-
-    const cost = await LaborCosts.create({
-      userId,
-      taskId,
-      time,
-      activity,
-      details,
-      date: costDate,
-    });
-
-    return this.toResponseDto(cost.toJSON());
-  }
-
-  /**
    * Удалить трудозатраты по ID
    */
   async removeLaborCost(id: number) {
@@ -54,36 +19,6 @@ export class LaborCostsService {
     }
     await cost.destroy();
     return true;
-  }
-
-  /**
-   * Обновить трудозатраты (время, описание, дата)
-   */
-  async updateLaborCost(dto: UpdateLaborCostDto) {
-    const cost = await LaborCosts.findByPk(dto.id);
-    if (!cost) {
-      throw new Error(`Трудозатраты с ID ${dto.id} не найдены`);
-    }
-
-    if (dto.time !== undefined) {
-      cost.time = dto.time;
-    }
-
-    if (dto.details !== undefined) {
-      cost.details = dto.details;
-    }
-
-    const updateDate = new Date(dto.date);
-    if (isNaN(updateDate.getTime())) {
-      throw new Error(
-        "Поле 'date' обязательно и должно быть корректной датой в формате YYYY-MM-DD"
-      );
-    }
-    cost.date = updateDate;
-
-    await cost.save();
-
-    return this.toResponseDto(cost.toJSON());
   }
 
   /**
@@ -139,15 +74,15 @@ export class LaborCostsService {
   /**
    * Преобразует модель в Response DTO
    */
-  private toResponseDto(data: any): LaborCostResponseDto {
+  private toResponseDto(data: LaborCosts): LaborCostResponseDto {
     return {
       id: data.id,
-      userId: data.user_id,
-      taskId: data.task_id,
+      userId: data.userId,
+      taskId: data.taskId,
       time: data.time,
-      details: data.details,
+      details: data.details || undefined,
       activity: data.activity,
-      date: data.date.toISOString().split("T")[0],
+      date: data.date,
       createdAt: data.createdAt.toISOString(),
       updatedAt: data.updatedAt.toISOString(),
     };

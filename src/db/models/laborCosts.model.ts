@@ -16,7 +16,7 @@ interface LaborCostsAttributes {
   time: number;
   details?: string;
   activity: ActivityType;
-  date: string | Date; // 👈 Обязательное поле: дата трудозатрат
+  date: string;
 }
 
 class LaborCosts
@@ -29,7 +29,7 @@ class LaborCosts
   public time!: number;
   public details?: string;
   public activity!: ActivityType;
-  public date!: Date; // 👈 Поле добавлено и обязательно
+  public date!: string;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;

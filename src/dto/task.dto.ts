@@ -21,7 +21,7 @@ export interface UpdateTaskDto {
 export interface TaskResponseDto {
   id: number;
   title: string;
-  description: string | null;
+  description?: string;
   isClosed: boolean;
   createdAt: string;
   updatedAt: string;

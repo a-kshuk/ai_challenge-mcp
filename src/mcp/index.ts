@@ -7,6 +7,7 @@ import { LaborCostsService } from "../services/LaborCostsService";
 import { UserService } from "../services/UserService";
 import { TaskService } from "../services/TaskService";
 import { LaborCostsReportService } from "../services/LaborCostsReportService";
+import { setupTestDB } from "../db/test-db";
 
 // Инициализация сервисов
 const weatherService = new WeatherService();
@@ -80,6 +81,7 @@ server.registerTool(
   },
   async (req) => {
     try {
+      await setupTestDB();
       const { date } = req;
 
       const report = await laborCostsReportService.generateReport(date);

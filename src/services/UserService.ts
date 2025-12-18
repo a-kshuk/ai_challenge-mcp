@@ -80,7 +80,7 @@ export class UserService {
   /**
    * Преобразует модель в Response DTO
    */
-  private toResponseDto(data: any): UserResponseDto {
+  private toResponseDto(data: User): UserResponseDto {
     return {
       id: data.id,
       firstName: data.firstName,

@@ -32,7 +32,11 @@ export class SchedulerEntryPoint implements AiEntryPoint {
    */
   private async handleDailyTrigger(): Promise<void> {
     const SESSION_ID = "scheduler-session";
-    const query = "Собери статистику по трудозатратам за вчерашний день";
+    const yesterday = new Date(Date.now() - 86400000)
+      .toISOString()
+      .split("T")[0];
+
+    const query = `Собери статистику по трудозатратам за ${yesterday}`;
 
     console.log(
       "📊 [Scheduler] Запрос к ИИ: Собираем статистику по трудозатратам за вчера..."
