@@ -62,7 +62,12 @@ export class ChatProcessor {
       }
       const reply = await this.ai.simpleChat(
         sessionId,
-        "Напиши мне ответ на основе результата выполнения функций, который можно было бы сразу отправить тому, кто запрашивал"
+        `You are an AI agent executing a multi‑step MCP (Model‑Controlled Planning) chain. Your goal is to:
+1. Retrieve Moscow’s weather forecast using \`get_weather_forecast\`.
+2. Save the result to a Markdown file via \`save_text_md\`.
+
+
+Follow the MCP framework strictly: PLAN → EXECUTE → VERIFY → OUTPUT.`
       );
       finalOutput.push(reply);
     } else {

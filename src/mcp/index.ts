@@ -1,16 +1,19 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import z from "zod";
+import "dotenv/config";
 
 import { WeatherService } from "../services/WeatherServices";
 import { LaborCostsService } from "../services/LaborCostsService";
 import { UserService } from "../services/UserService";
 import { TaskService } from "../services/TaskService";
 import { LaborCostsReportService } from "../services/LaborCostsReportService";
+import { FileService } from "../services/FileService";
 import { setupTestDB } from "../db/test-db";
 
 // Инициализация сервисов
 const weatherService = new WeatherService();
+const fileService = new FileService();
 const laborCostsService = new LaborCostsService();
 const userService = new UserService();
 const taskService = new TaskService();
@@ -30,26 +33,46 @@ server.registerTool(
   "get_weather_forecast",
   {
     title: "Получение прогноза погоды",
-    description: "Получите прогноз погоды для выбранного города",
-    inputSchema: z.object({
-      city: z.string().min(1, "Поле 'city' обязательно"),
-    }),
+    description: "Получите прогноз погода для выбранного города",
+    inputSchema: {
+      city: z.string(),
+    },
+  },
+  async (req) => {
+    const data = await weatherService.getWeather(req.city);
+    return {
+      content: [
+        {
+          type: "text",
+          text: `
+1. Проанализируй данные в формате json. 
+2. Выведи информацию о погоде
+3. Напиши как лучше одеться для выхода на улицу
+
+data: ${data}`,
+        },
+      ],
+    };
+  }
+);
+
+server.registerTool(
+  "save_text_md",
+  {
+    title: "Получение прогноза погоды",
+    description: "Получите прогноз погода для выбранного города",
+    inputSchema: {
+      text: z.string(),
+    },
   },
   async (req) => {
     try {
-      const data = await weatherService.getWeather(req.city);
+      const data = await fileService.saveFile(req.text);
       return {
         content: [
           {
             type: "text",
-            text: `
-1. Проанализируй данные в формате JSON.
-2. Выведи текущую температуру, осадки, ветер.
-3. Дай рекомендацию, как одеться.
-
-Данные:
-${data}
-            `.trim(),
+            text: `Файл успешно сохранен`,
           },
         ],
       };
@@ -58,7 +81,7 @@ ${data}
         content: [
           {
             type: "text",
-            text: `Ошибка при получении погоды: ${error.message}`,
+            text: `Ошибка при сохранении файла: ${error.message}`,
           },
         ],
       };
