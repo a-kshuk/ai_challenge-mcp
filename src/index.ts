@@ -1,5 +1,5 @@
+import { selectEntrypoint } from "./entrypoint/selector";
 import "dotenv/config";
-import { selectEntrypoint } from "./selector";
 
 selectEntrypoint().then((entrypoint) => {
   entrypoint.run();

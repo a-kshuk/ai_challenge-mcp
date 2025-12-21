@@ -1,6 +1,7 @@
 import { createInterface } from "readline/promises";
 import { stdin as input, stdout as output } from "process";
-import { ChatProcessor } from "@agentkit/ai-agent";
+import "dotenv/config";
+import { ChatProcessor } from "../../ai-agent";
 import { AiEntryPoint } from "../types";
 
 export class CliEntryPoint implements AiEntryPoint {

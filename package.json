@@ -1,53 +1,32 @@
 {
   "name": "ai-mcp",
   "version": "1.0.0",
-  "private": true,
-  "workspaces": [
-    "packages/ai-agent",
-    "packages/entrypoint",
-    "packages/services",
-    "packages/mcp-server"
-  ],
+  "main": "index.js",
   "scripts": {
-    "build": "lerna run build --stream",
-    "clean": "rimraf packages/*/dist",
-    "clean:all": "yarn clean && rimraf node_modules && rimraf **/node_modules",
-    "start:ai": "yarn workspace @agentkit/ai-agent start",
-    "dev:ai": "yarn workspace @agentkit/ai-agent dev",
-    "dev": "yarn workspace @agentkit/ai-agent dev",
-    "start:mcp": "yarn workspace @agentkit/mcp-server start",
-    "start:mcp-inspect": "yarn workspace @agentkit/mcp-server start:inspect",
-    "dev:mcp": "yarn workspace @agentkit/mcp-server dev",
-    "start:services": "yarn workspace @agentkit/services start",
-    "dev:services": "yarn workspace @agentkit/services dev",
-    "start:entrypoint": "yarn workspace @agentkit/entrypoint start",
-    "dev:entrypoint": "yarn workspace @agentkit/entrypoint dev",
-    "lint": "echo 'No linter configured'",
-    "format": "echo 'No formatter configured'"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "build": "tsc",
+    "dev": "ts-node src/index.ts --cli",
+    "start": "node dist/index.js",
+    "dev:watch": "nodemon --exec ts-node src/index.ts",
+    "mcp": "node dist/mcp/index.js",
+    "mcp-inspect": "mcp-inspector yarn mcp"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Monorepo for AI agent with Model Context Protocol and services",
+  "description": "",
   "devDependencies": {
     "@modelcontextprotocol/inspector": "^0.17.5",
+    "@types/dockerode": "^3.3.47",
     "@types/node": "^25.0.2",
-    "@types/sequelize": "^6.12.0",
-    "@types/sqlite3": "^5.1.0",
-    "lerna": "^9.0.3",
     "nodemon": "^3.1.11",
-    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.0",
+    "dockerode": "^4.0.9",
     "dotenv": "^17.2.3",
-    "sequelize": "^6.37.7",
-    "sqlite3": "^5.1.7",
+    "gigachat": "^0.0.17",
     "zod": "^4.2.1"
   }
 }
