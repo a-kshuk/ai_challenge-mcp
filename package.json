@@ -5,11 +5,11 @@
   "workspaces": [
     "packages/ai-agent",
     "packages/entrypoint",
-    "packages/mcp-server",
-    "packages/services"
+    "packages/services",
+    "packages/mcp-server"
   ],
   "scripts": {
-    "build": "lerna run build --parallel",
+    "build": "lerna run build --stream",
     "clean": "rimraf packages/*/dist",
     "clean:all": "yarn clean && rimraf node_modules && rimraf **/node_modules",
     "start:ai": "yarn workspace @agentkit/ai-agent start",
