@@ -9,6 +9,7 @@
 packages/*/dist
 packages/*/build
 build/
+data/
 
 # Игнорировать .js, но не исходники и конфиги
 *.js
