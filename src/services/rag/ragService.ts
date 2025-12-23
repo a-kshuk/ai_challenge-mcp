@@ -27,7 +27,6 @@ function cosineSimilarity(a: number[], b: number[]): number {
 export class RagService {
   private chunks: DocumentChunk[] = [];
   private ollama: Ollama;
-  private isInitialized = true; // Будем считать, что инициализация идёт в процессе
 
   constructor(private model: string = "nomic-embed-text") {
     this.ollama = new Ollama({ host: "http://localhost:11434" });
@@ -86,7 +85,7 @@ export class RagService {
     const text = await this.loadPdf(filePath);
     console.log(`Текст извлечён: ${text.length} символов`);
 
-    const chunks = this.splitText(text, 300, 50);
+    const chunks = this.splitText(text, 100, 50);
     console.log(`Создано чанков: ${chunks.length}`);
 
     // Попробуем загрузить уже обработанные чанки

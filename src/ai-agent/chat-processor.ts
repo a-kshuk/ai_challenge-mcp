@@ -10,7 +10,7 @@ export class ChatProcessor {
   private tools: ToolDescriptor[] = [];
 
   constructor() {
-    this.ai = AIHelperProvider.getAiProvider("gigachat");
+    this.ai = AIHelperProvider.getAiProvider("ollama");
     this.mcp = new Client({ name: "mcp-client-cli", version: "1.0.0" });
     this.transport = new StdioClientTransport({
       command: "node",

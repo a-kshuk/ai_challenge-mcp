@@ -1,5 +1,6 @@
 import { AIHelperInterface } from "./types";
 import { GigachatAIHelper } from "./gigachat";
+import { OllamaAIHelper } from "./ollama";
 
 const systemPrompt = "";
 
@@ -19,7 +20,8 @@ export class AIHelperProvider {
           },
           systemPrompt
         );
+      case "ollama":
+        return new OllamaAIHelper(systemPrompt);
     }
-    throw new Error(`AI provider ${type} not supported`);
   }
 }
