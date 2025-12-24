@@ -2,11 +2,15 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import { dirname } from "path";
 import { Ollama } from "ollama";
 import pdfParse from "pdf-parse";
+import { createHash } from "crypto";
+import winston from "winston";
+import { getLogger } from "../../utils/logger";
 
 interface DocumentChunk {
   id: number;
   text: string;
   embedding: number[];
+  hash: string;
 }
 
 /**
@@ -27,19 +31,42 @@ function cosineSimilarity(a: number[], b: number[]): number {
 export class RagService {
   private chunks: DocumentChunk[] = [];
   private ollama: Ollama;
+  private logger!: winston.Logger;
 
   constructor(private model: string = "nomic-embed-text") {
     this.ollama = new Ollama({ host: "http://localhost:11434" });
+    this.init();
+  }
+
+  /**
+   * Асинхронная инициализация логгера
+   */
+  async init(): Promise<this> {
+    this.logger = await getLogger("RagService");
+    this.logger.info("RagService инициализирован");
+    return this;
   }
 
   /**
    * Загружает PDF и извлекает текст
    */
   async loadPdf(filePath: string): Promise<string> {
-    console.log(`Чтение PDF: ${filePath}`);
-    const buffer = await readFile(filePath);
-    const data = await pdfParse(buffer);
-    return data.text;
+    this.logger.info("Загрузка PDF", { filePath });
+    try {
+      const buffer = await readFile(filePath);
+      const data = await pdfParse(buffer);
+      this.logger.info("PDF успешно распознан", {
+        charCount: data.text.length,
+      });
+      return data.text;
+    } catch (err: any) {
+      this.logger.error("Ошибка при чтении PDF", {
+        filePath,
+        error: err.message,
+        stack: err.stack,
+      });
+      throw err;
+    }
   }
 
   /**
@@ -64,46 +91,92 @@ export class RagService {
   }
 
   /**
-   * Генерирует эмбеддинг через Ollama
+   * Нормализует текст для хэширования
    */
-  private async generateEmbedding(text: string): Promise<number[]> {
-    const response = await this.ollama.embeddings({
-      model: this.model,
-      prompt: text,
-    });
-    return response.embedding;
+  private normalizeText(text: string): string {
+    return text
+      .replace(/\s+/g, " ")
+      .replace(/[^\p{L}\p{N}\s]/gu, "")
+      .trim()
+      .toLowerCase();
   }
 
   /**
-   * Полный пайплайн: загрузка → чанки → эмбеддинги (с сохранением прогресса)
+   * Проверяет, является ли чанк валидным
+   */
+  private isValidChunk(text: string): boolean {
+    const clean = this.normalizeText(text);
+    return clean.length >= 20 && /[a-zA-Zа-яА-ЯёЁ0-9]/.test(clean);
+  }
+
+  /**
+   * Генерирует SHA-256 хэш строки
+   */
+  private hashText(text: string): string {
+    return createHash("sha256").update(text).digest("hex");
+  }
+
+  /**
+   * Генерирует эмбеддинг через Ollama
+   */
+  private async generateEmbedding(text: string): Promise<number[]> {
+    try {
+      const response = await this.ollama.embeddings({
+        model: this.model,
+        prompt: text,
+      });
+      return response.embedding;
+    } catch (err: any) {
+      this.logger.error("Ошибка при генерации эмбеддинга", {
+        error: err.message,
+        textPreview: text.substring(0, 100),
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Полный пайплайн: загрузка → чанки → эмбеддинги
    */
   async ingestPdf(
     filePath: string,
     indexFilePath: string = "./data/rag-index.json"
   ): Promise<void> {
-    console.log("Загрузка PDF...");
-    const text = await this.loadPdf(filePath);
-    console.log(`Текст извлечён: ${text.length} символов`);
+    this.logger.info("Начало обработки PDF", { filePath, indexFilePath });
 
-    const chunks = this.splitText(text, 100, 50);
-    console.log(`Создано чанков: ${chunks.length}`);
-
-    // Попробуем загрузить уже обработанные чанки
     try {
       await this.loadIndex(indexFilePath);
-      console.log(
-        `✅ Прогресс загружен: ${this.chunks.length} чанков уже обработано`
-      );
-    } catch (err) {
-      console.log("🟡 Нет сохранённого прогресса — начнём с нуля");
+      this.logger.info("Индекс загружен", { chunkCount: this.chunks.length });
+    } catch (err: any) {
+      this.logger.warn("Индекс не найден или повреждён. Начинаем с нуля", {
+        error: err.message,
+      });
       this.chunks = [];
     }
 
-    const startIndex = this.chunks.length;
-    console.log(`Начинаем с чанка ${startIndex}`);
+    const existingHashes = new Set(this.chunks.map((c) => c.hash));
 
-    for (let i = startIndex; i < chunks.length; i++) {
-      const chunkText = chunks[i];
+    const rawText = await this.loadPdf(filePath);
+    const chunks = this.splitText(rawText, 100, 50);
+
+    this.logger.info("Чанки созданы", { total: chunks.length });
+
+    for (let i = 0; i < chunks.length; i++) {
+      const rawText = chunks[i];
+
+      if (!this.isValidChunk(rawText)) {
+        this.logger.debug("Пропуск низкокачественного чанка", { chunkId: i });
+        continue;
+      }
+
+      const normalizedText = this.normalizeText(rawText);
+      const chunkHash = this.hashText(normalizedText);
+
+      if (existingHashes.has(chunkHash)) {
+        this.logger.debug("Пропуск дубликата", { chunkId: i });
+        continue;
+      }
+
       let success = false;
       let attempts = 0;
       const maxAttempts = 3;
@@ -111,52 +184,76 @@ export class RagService {
       while (!success && attempts < maxAttempts) {
         try {
           attempts++;
-          console.log(`Чанк ${i}, попытка ${attempts}...`);
-          const embedding = await this.generateEmbedding(chunkText);
-          this.chunks.push({ id: i, text: chunkText, embedding });
-          console.log(`Чанк ${i} успешно обработан`);
+          this.logger.debug("Обработка чанка", {
+            chunkId: i,
+            attempt: attempts,
+          });
 
-          // Сохраняем прогресс после каждого успешного чанка
+          const embedding = await this.generateEmbedding(rawText);
+
+          this.chunks.push({
+            id: i,
+            text: rawText,
+            embedding,
+            hash: chunkHash,
+          });
+
+          existingHashes.add(chunkHash);
+          this.logger.info("Чанк успешно обработан", { chunkId: i });
+
           await this.saveIndex(indexFilePath);
-
-          success = true;
-
-          // Пауза между запросами
           await new Promise((resolve) => setTimeout(resolve, 100));
+          success = true;
         } catch (err: any) {
-          console.error(
-            `Ошибка при обработке чанка ${i}, попытка ${attempts}:`,
-            err.message
-          );
+          this.logger.error("Ошибка при обработке чанка", {
+            chunkId: i,
+            attempt: attempts,
+            maxAttempts,
+            error: err.message,
+          });
 
           if (attempts >= maxAttempts) {
-            console.error(
-              `❌ Не удалось обработать чанк ${i} после ${maxAttempts} попыток. Пропускаем.`
+            this.logger.warn(
+              "Чанк пропущен после максимального числа попыток",
+              { chunkId: i }
             );
           } else {
-            const delay = Math.pow(2, attempts) * 200; // экспоненциальная задержка
-            console.log(`⏳ Ждём ${delay} мс перед повтором...`);
+            const delay = Math.pow(2, attempts) * 200;
+            this.logger.debug("Повтор через задержку", {
+              chunkId: i,
+              delayMs: delay,
+            });
             await new Promise((resolve) => setTimeout(resolve, delay));
           }
         }
       }
     }
 
-    console.log(
-      `✅ Обработка PDF завершена. Всего обработано чанков: ${this.chunks.length}`
-    );
+    this.logger.info("Обработка PDF завершена", {
+      totalProcessed: this.chunks.length,
+      filePath,
+    });
   }
 
   /**
-   * Поиск по схожести
+   * Поиск по схожести с фильтрацией по порогу
    */
   async search(
     query: string,
-    topK: number = 3
+    topK: number = 5,
+    minScore: number = 0.7
   ): Promise<{ text: string; score: number }[]> {
     if (!this.chunks.length) {
-      throw new Error("Сначала загрузите PDF с помощью ingestPdf.");
+      const msg = "Сначала загрузите PDF с помощью ingestPdf.";
+      this.logger.error(msg);
+      throw new Error(msg);
     }
+
+    this.logger.debug("Выполнение поискового запроса", {
+      query,
+      topK,
+      minScore,
+    });
 
     const queryEmbedding = await this.generateEmbedding(query);
     const similarities = this.chunks
@@ -164,28 +261,50 @@ export class RagService {
         text: chunk.text,
         score: cosineSimilarity(chunk.embedding, queryEmbedding),
       }))
+      .filter((result) => result.score >= minScore)
       .sort((a, b) => b.score - a.score)
       .slice(0, topK);
+
+    if (similarities.length === 0) {
+      this.logger.warn("По запросу нет релевантных результатов", {
+        query,
+        minScore,
+      });
+    } else {
+      this.logger.debug("Найдены релевантные фрагменты", {
+        resultCount: similarities.length,
+      });
+    }
 
     return similarities;
   }
 
   /**
-   * Сохраняет индекс в JSON (с автосозданием папки)
+   * Сохраняет индекс в JSON
    */
   async saveIndex(path: string): Promise<void> {
-    const dir = dirname(path);
-    await mkdir(dir, { recursive: true });
+    try {
+      const dir = dirname(path);
+      await mkdir(dir, { recursive: true });
 
-    const data = {
-      chunks: this.chunks.map((c) => ({
-        ...c,
-        embedding: Array.from(c.embedding),
-      })),
-    };
+      const data = {
+        chunks: this.chunks.map((c) => ({
+          id: c.id,
+          text: c.text,
+          embedding: Array.from(c.embedding),
+          hash: c.hash,
+        })),
+      };
 
-    await writeFile(path, JSON.stringify(data, null, 2), "utf-8");
-    console.log(`💾 Индекс сохранён: ${path}`);
+      await writeFile(path, JSON.stringify(data, null, 2), "utf-8");
+      this.logger.info("Индекс сохранён", { path });
+    } catch (err: any) {
+      this.logger.error("Ошибка при сохранении индекса", {
+        path,
+        error: err.message,
+      });
+      throw err;
+    }
   }
 
   /**
@@ -200,13 +319,22 @@ export class RagService {
         id: c.id,
         text: c.text,
         embedding: Float32Array.from(c.embedding),
+        hash: c.hash,
       }));
 
-      console.log(`✅ Индекс загружен: ${this.chunks.length} чанков`);
+      this.logger.info("Индекс загружен", {
+        path,
+        chunkCount: this.chunks.length,
+      });
     } catch (err: any) {
       if (err.code === "ENOENT") {
+        this.logger.warn("Файл индекса не найден", { path });
         throw new Error(`Файл индекса не найден: ${path}. Начнём с нуля.`);
       } else {
+        this.logger.error("Ошибка при загрузке индекса", {
+          path,
+          error: err.message,
+        });
         throw new Error(`Ошибка при загрузке индекса: ${err.message}`);
       }
     }
