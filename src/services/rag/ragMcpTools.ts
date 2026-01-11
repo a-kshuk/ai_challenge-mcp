@@ -28,7 +28,7 @@ const ragSearchTool: McpTool<{ query: string }> = [
       await ragService.saveIndex(indexPath);
 
       // Поиск по запросу
-      const results = await ragService.search(req.query, 3);
+      const results = await ragService.search(req.query, 10);
       if (!results || results.length === 0 || results[0].score < 0.1) {
         return {
           content: [
