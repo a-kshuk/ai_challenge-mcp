@@ -4,7 +4,6 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "test:rag": "ts-node src/services/rag/test/rag.test.ts",
     "dev": "ts-node src/index.ts --cli",
     "start": "node dist/index.js",
     "dev:watch": "nodemon --exec ts-node src/index.ts",

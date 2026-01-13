@@ -5,9 +5,11 @@ import { getLogger } from "../utils/logger";
 import { PdfExtractor } from "./extractors/PdfExtractor";
 import { TextProcessor } from "./processors/TextProcessor";
 import { EmbeddingEngine } from "./embedding/EmbeddingEngine";
+import { TextExtractor } from "./extractors/TextExtractor";
 
 export class RagService {
   private pdfExtractor!: PdfExtractor;
+  private textExtractor!: TextExtractor;
   private textProcessor!: TextProcessor;
   private embeddingEngine!: EmbeddingEngine;
   private logger!: Logger;
@@ -15,19 +17,18 @@ export class RagService {
   async init() {
     this.logger = await getLogger("RagService");
     this.pdfExtractor = new PdfExtractor(this.logger);
+    this.textExtractor = new TextExtractor(this.logger);
     this.textProcessor = new TextProcessor(this.logger);
     this.embeddingEngine = new EmbeddingEngine(this.logger);
-    await this.ingestPdf("./fnp.pdf");
+    await this.ingestTextFile("./README.md", "readme");
   }
 
-  async ingestPdf(
-    filePath: string,
-    indexFilePath: string = "./data/rag-index.json"
-  ) {
-    this.logger.info("Начало обработки PDF", { filePath });
+  async ingestTextFile(filePath: string, fileName: string) {
+    const indexFilePath: string = `./data/${fileName}.json`;
+    this.logger.info("Начало обработки файла", { filePath });
 
     // 1. Загружаем текст
-    const text = await this.pdfExtractor.extract(filePath);
+    const text = await this.textExtractor.extract(filePath);
 
     // 2. Разбиваем на чанки
     const chunks = this.textProcessor.split(text, 100, 50);

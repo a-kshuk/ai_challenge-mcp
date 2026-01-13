@@ -2,7 +2,14 @@ import { AIHelperInterface } from "./types";
 import { GigachatAIHelper } from "./gigachat";
 import { OllamaAIHelper } from "./ollama";
 
-const systemPrompt = "";
+const systemPrompt = `Ты асистент разработчика.
+
+Используйте RAG для подключения к документации вашего проекта
+
+Через MCP подключите ассистента к текущему git-репозиторию
+
+Команда */help* - отвечает на вопросы о проекте
+`;
 
 export class AIHelperProvider {
   static getAiProvider(type: "gigachat" | "ollama"): AIHelperInterface {
