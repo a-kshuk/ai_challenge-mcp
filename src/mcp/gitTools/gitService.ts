@@ -91,4 +91,71 @@ export class GitService {
       throw new Error(`Git ошибка: ${error.message}`);
     }
   }
+
+  /**
+   * Получает список изменённых файлов в рабочей директории (не закоммиченных)
+   * @param repoPath Опциональный путь к репозиторию
+   * @returns Массив объектов с информацией о файлах и типе изменений
+   */
+  async getDiffStatus(
+    repoPath?: string
+  ): Promise<Array<{ file: string; status: string }>> {
+    const command = "git status --porcelain";
+    const options = repoPath ? { cwd: repoPath } : undefined;
+
+    try {
+      const { stdout } = await execAsync(command, options);
+      const output =
+        typeof stdout === "string" ? stdout : stdout.toString("utf8");
+      const lines = output.trim().split("\n").filter(Boolean);
+
+      const changes = lines.map((line) => {
+        const status = line.slice(0, 2).trim();
+        const file = line.slice(3).trim();
+        return { file, status };
+      });
+
+      await this.logger.info(`Обнаружено изменений: ${changes.length}`, {
+        changes,
+      });
+      return changes;
+    } catch (error: any) {
+      await this.logger.error("Ошибка при получении статуса изменений", {
+        error: error.message,
+      });
+      throw new Error(`Git ошибка: ${error.message}`);
+    }
+  }
+
+  /**
+   * Получает содержимое diff для всех проиндексированных изменений (staged)
+   * @param repoPath Опциональный путь к репозиторию
+   * @returns Строка с полным diff изменений, добавленных в staging
+   */
+  async getDiffPatch(repoPath?: string): Promise<string> {
+    const command = "git diff --staged";
+    const options = repoPath ? { cwd: repoPath } : undefined;
+
+    try {
+      const { stdout } = await execAsync(command, options);
+      const diff =
+        typeof stdout === "string" ? stdout : stdout.toString("utf8");
+
+      if (!diff.trim()) {
+        await this.logger.info("Нет проиндексированных изменений");
+        return "Нет изменений в staging (git diff --staged пуст).";
+      }
+
+      await this.logger.info("Получен diff проиндексированных изменений", {
+        charCount: diff.length,
+      });
+
+      return diff;
+    } catch (error: any) {
+      await this.logger.error("Ошибка при выполнении git diff --staged", {
+        error: error.message,
+      });
+      throw new Error(`Git ошибка: ${error.message}`);
+    }
+  }
 }

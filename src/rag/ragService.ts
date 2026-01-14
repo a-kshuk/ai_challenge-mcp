@@ -6,18 +6,21 @@ import { PdfExtractor } from "./extractors/PdfExtractor";
 import { TextProcessor } from "./processors/TextProcessor";
 import { EmbeddingEngine } from "./embedding/EmbeddingEngine";
 import { TextExtractor } from "./extractors/TextExtractor";
+import { ProjectExtractor } from "./extractors/ProjectExtractor";
 
 export class RagService {
   private pdfExtractor!: PdfExtractor;
   private textExtractor!: TextExtractor;
   private textProcessor!: TextProcessor;
   private embeddingEngine!: EmbeddingEngine;
+  private projectExtractor!: ProjectExtractor;
   private logger!: Logger;
 
   async init() {
     this.logger = await getLogger("RagService");
     this.pdfExtractor = new PdfExtractor(this.logger);
     this.textExtractor = new TextExtractor(this.logger);
+    this.projectExtractor = new ProjectExtractor(this.logger);
     this.textProcessor = new TextProcessor(this.logger);
     this.embeddingEngine = new EmbeddingEngine(this.logger);
     await this.ingestTextFile("./README.md", "readme");
@@ -29,6 +32,7 @@ export class RagService {
 
     // 1. Загружаем текст
     const text = await this.textExtractor.extract(filePath);
+    +"\n" + (await this.projectExtractor.extractFromDirectory("./src"));
 
     // 2. Разбиваем на чанки
     const chunks = this.textProcessor.split(text, 100, 50);

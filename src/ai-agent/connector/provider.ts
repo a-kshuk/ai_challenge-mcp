@@ -2,7 +2,7 @@ import { AIHelperInterface } from "./types";
 import { GigachatAIHelper } from "./gigachat";
 import { OllamaAIHelper } from "./ollama";
 
-const systemPrompt = `Ты асистент разработчика.
+const SYSTEM_PROMPT = `Ты асистент разработчика.
 
 Используйте RAG для подключения к документации вашего проекта
 
@@ -12,7 +12,10 @@ const systemPrompt = `Ты асистент разработчика.
 `;
 
 export class AIHelperProvider {
-  static getAiProvider(type: "gigachat" | "ollama"): AIHelperInterface {
+  static getAiProvider(
+    type: "gigachat" | "ollama",
+    systemPrompt = SYSTEM_PROMPT
+  ): AIHelperInterface {
     switch (type) {
       case "gigachat":
         return new GigachatAIHelper(
@@ -25,7 +28,7 @@ export class AIHelperProvider {
             talk: process.env.GIGACHAT_MODEL_TALK || "GigaChat",
             tools: process.env.GIGACHAT_MODEL_TOOLS || "GigaChat",
           },
-          systemPrompt
+          SYSTEM_PROMPT
         );
       case "ollama":
         return new OllamaAIHelper(systemPrompt);

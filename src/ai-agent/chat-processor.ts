@@ -11,8 +11,8 @@ export class ChatProcessor {
   private rag: RagService = new RagService();
   private tools: ToolDescriptor[] = [];
 
-  constructor() {
-    this.ai = AIHelperProvider.getAiProvider("ollama");
+  constructor(systemPrompt?: string) {
+    this.ai = AIHelperProvider.getAiProvider("ollama", systemPrompt);
     this.mcp = new Client({ name: "mcp-client-cli", version: "1.0.0" });
     this.transport = new StdioClientTransport({
       command: "node",
@@ -110,5 +110,13 @@ export class ChatProcessor {
       tools: toolsUsed,
       sources, // возвращаем источники RAG
     };
+  }
+
+  async close() {
+    try {
+      await this.mcp.close();
+    } catch (error) {
+      console.error("Ошибка при закрытии MCP:", error);
+    }
   }
 }

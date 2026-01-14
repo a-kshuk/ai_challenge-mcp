@@ -80,6 +80,100 @@ const listBranchesTool: McpTool<{ all?: boolean }> = [
 ];
 
 /**
+ * Инструмент: Получить статус изменений (какие файлы изменены, добавлены, удалены)
+ */
+const getDiffStatusTool: McpTool<void> = [
+  "git_get_diff_status",
+  {
+    title: "Получить статус изменений",
+    description:
+      "Возвращает список всех изменённых файлов в рабочей директории с указанием статуса (изменён, добавлен, удалён и т.д.).",
+    inputSchema: undefined,
+  },
+  async () => {
+    try {
+      const changes = await gitService.getDiffStatus();
+      if (changes.length === 0) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Нет изменений в рабочей директории.",
+            },
+          ],
+        };
+      }
+
+      const text = changes
+        .map((change) => `${change.status.padEnd(3)} ${change.file}`)
+        .join("\n");
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Изменённые файлы:\n\n${text}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Ошибка при получении статуса изменений: ${
+              (error as Error).message
+            }`,
+          },
+        ],
+      };
+    }
+  },
+];
+
+/**
+ * Инструмент: Получить diff изменений (проиндексированных)
+ */
+const getDiffPatchTool: McpTool<void> = [
+  "git_get_diff_patch",
+  {
+    title: "Получить проиндексированные изменения (staged)",
+    description:
+      "Возвращает полный текст изменений, добавленных в staging (через git add), которые войдут в следующий коммит.",
+    inputSchema: undefined,
+  },
+  async () => {
+    try {
+      const diff = await gitService.getDiffPatch();
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Изменения, готовые к коммиту (staged):\n\n\`\`\`diff\n${diff}\n\`\`\``,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Ошибка при получении diff --staged: ${
+              (error as Error).message
+            }`,
+          },
+        ],
+      };
+    }
+  },
+];
+
+/**
  * Группировка всех Git-инструментов
  */
-export const GitTools = [getCurrentBranchTool, listBranchesTool];
+export const GitTools = [
+  getCurrentBranchTool,
+  listBranchesTool,
+  getDiffStatusTool,
+  getDiffPatchTool,
+];
