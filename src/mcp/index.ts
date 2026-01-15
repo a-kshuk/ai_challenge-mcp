@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import "dotenv/config";
 import { GitTools } from "./gitTools";
 import { McpTool } from "./types";
+import { GithubTools } from "./githubTools";
 
 // Инициализация сервисов
 const server = new McpServer({
@@ -10,7 +11,7 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
-const TOOLS: McpTool<any>[] = [...GitTools];
+const TOOLS: McpTool<any>[] = [...GitTools, ...GithubTools];
 
 TOOLS.forEach((tool) => {
   try {
