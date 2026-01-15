@@ -9,7 +9,8 @@
     "dev:watch": "nodemon --exec ts-node src/index.ts",
     "mcp": "node dist/mcp/index.js",
     "mcp-inspect": "mcp-inspector yarn mcp",
-    "agent:precommit": "yarn start --agent --mode=precommit"
+    "agent:precommit": "ts-node src/index.ts --agent --mode=precommit",
+    "dev:telegram": "ts-node src/index.ts --telegram"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +39,7 @@
     "minimatch": "^10.1.1",
     "ollama": "^0.6.3",
     "pdf-parse": "^1.1.1",
+    "telegraf": "^4.16.3",
     "winston": "^3.19.0",
     "xlsx": "^0.18.5",
     "zod": "^4.2.1"

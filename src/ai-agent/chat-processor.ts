@@ -2,7 +2,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { AIHelperProvider } from "./connector/provider";
 import { AIHelperInterface, ToolDescriptor } from "./connector/types";
-import { RagService } from "../rag"; // твой модуль RAG
+import { RagService } from "../rag";
+import { ChatProcessorConfig } from "../entrypoint/types";
 
 export class ChatProcessor {
   ai: AIHelperInterface;
@@ -11,8 +12,24 @@ export class ChatProcessor {
   private rag: RagService = new RagService();
   private tools: ToolDescriptor[] = [];
 
-  constructor(systemPrompt?: string) {
-    this.ai = AIHelperProvider.getAiProvider("ollama", systemPrompt);
+  // Сохраняем конфиг
+  private readonly config: Required<ChatProcessorConfig>;
+
+  constructor(config?: ChatProcessorConfig) {
+    // Устанавливаем значения по умолчанию
+    this.config = {
+      systemPrompt:
+        config?.systemPrompt ?? "Вы — помощник, отвечающий на вопросы.",
+      rag: {
+        paths: config?.rag.paths ?? ["_files/Шаблоны.xlsx"],
+        exclude: config?.rag.exclude ?? [],
+      },
+    };
+
+    this.ai = AIHelperProvider.getAiProvider(
+      "ollama",
+      this.config.systemPrompt
+    );
     this.mcp = new Client({ name: "mcp-client-cli", version: "1.0.0" });
     this.transport = new StdioClientTransport({
       command: "node",
@@ -22,7 +39,7 @@ export class ChatProcessor {
 
   async init() {
     this.mcp.connect(this.transport);
-    await this.rag.init(["_files/Шаблоны.xlsx"]);
+    await this.rag.init(this.config.rag.paths, this.config.rag.exclude);
     this.tools = (await this.mcp.listTools()).tools;
   }
 
@@ -32,19 +49,18 @@ export class ChatProcessor {
   ): Promise<{
     message: string;
     tools: { name: string; arguments: Record<string, unknown> }[];
-    sources: string[]; // Добавим источники из RAG
+    sources: string[];
   }> {
     const toolsUsed: { name: string; arguments: Record<string, unknown> }[] =
       [];
     const finalOutput: string[] = [];
     const sources: string[] = [];
 
-    // 🔍 Шаг 1: Получаем релевантные документы из RAG
-    const ragDocs = await this.rag.search(text);
+    // 🔍 Шаг 1: Поиск в RAG
+    const ragDocs = await this.rag.search(text, 10);
     if (ragDocs.length > 0) {
-      // Сохраним для статистики/источников
       sources.push(...ragDocs.map((_, i) => `RAG-источник ${i + 1}`));
-      // Сохраним контекст в сессию, чтобы ИИ его увидел
+
       await this.ai.storeToolResult(sessionId, {
         request: {
           name: "rag_retrieval",
@@ -55,7 +71,7 @@ export class ChatProcessor {
       });
     }
 
-    // 🔁 Шаг 2: Используем chatWithTools — возможно, ИИ решит использовать MCP
+    // 🔁 Шаг 2: Использование инструментов (MCP)
     const response = await this.ai.chatWithTools(sessionId, text, this.tools);
 
     if (response.toolCalls && response.toolCalls.length > 0) {
@@ -81,7 +97,7 @@ export class ChatProcessor {
         });
       }
 
-      // 🧠 После инструментов — финальный ответ с учётом RAG и MCP
+      // Финальный ответ с учётом результатов инструментов и RAG
       const reply = await this.ai.simpleChat(
         sessionId,
         `На основе локальных данных (инструменты и RAG), ответь на вопрос: "${text}". ` +
@@ -89,8 +105,9 @@ export class ChatProcessor {
       );
       finalOutput.push(reply);
     } else {
-      // ❌ Нет инструментов — но есть RAG?
+      // Нет вызовов инструментов
       if (ragDocs.length > 0) {
+        // Ответ только по данным из RAG
         const reply = await this.ai.simpleChat(
           sessionId,
           `Ответь на вопрос, используя только следующую информацию из базы знаний:\n\n${ragDocs.join(
@@ -100,7 +117,7 @@ export class ChatProcessor {
         );
         finalOutput.push(reply);
       } else {
-        // 💬 Нет ни инструментов, ни RAG — простой ответ
+        // Простой ответ от модели
         finalOutput.push(response.message);
       }
     }
@@ -108,7 +125,7 @@ export class ChatProcessor {
     return {
       message: finalOutput.join("\n"),
       tools: toolsUsed,
-      sources, // возвращаем источники RAG
+      sources,
     };
   }
 

@@ -5,6 +5,14 @@ import { ChatProcessor } from "../../ai-agent";
 import { AiEntryPoint } from "../types";
 
 export class CliEntryPoint implements AiEntryPoint {
+  // CLI использует свою конфигурацию
+  chatProcessorConfig = {
+    systemPrompt: `Вы — ИИ в интерактивном режиме. Отвечайте подробно, дружелюбно и по делу.`,
+    rag: {
+      paths: ["_files/Шаблоны.xlsx"],
+    },
+  };
+
   constructor(private readonly processor: ChatProcessor) {}
 
   async run() {
