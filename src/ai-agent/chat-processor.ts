@@ -22,7 +22,7 @@ export class ChatProcessor {
 
   async init() {
     this.mcp.connect(this.transport);
-    await this.rag.init();
+    await this.rag.init(["_files/Шаблоны.xlsx"]);
     this.tools = (await this.mcp.listTools()).tools;
   }
 

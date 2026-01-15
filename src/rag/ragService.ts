@@ -1,81 +1,119 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
-import { dirname } from "path";
+import { dirname, basename, extname, join } from "path";
 import { Logger } from "winston";
 import { getLogger } from "../utils/logger";
-import { PdfExtractor } from "./extractors/PdfExtractor";
+import { ProjectExtractor } from "./extractors/ProjectExtractor";
 import { TextProcessor } from "./processors/TextProcessor";
 import { EmbeddingEngine } from "./embedding/EmbeddingEngine";
-import { TextExtractor } from "./extractors/TextExtractor";
-import { ProjectExtractor } from "./extractors/ProjectExtractor";
+import { ExtractedDocument } from "./types";
+import { stat } from "fs/promises";
 
 export class RagService {
-  private pdfExtractor!: PdfExtractor;
-  private textExtractor!: TextExtractor;
+  private projectExtractor!: ProjectExtractor;
   private textProcessor!: TextProcessor;
   private embeddingEngine!: EmbeddingEngine;
-  private projectExtractor!: ProjectExtractor;
   private logger!: Logger;
 
-  async init() {
+  async init(paths: string[], exclude: string[] = []): Promise<void> {
     this.logger = await getLogger("RagService");
-    this.pdfExtractor = new PdfExtractor(this.logger);
-    this.textExtractor = new TextExtractor(this.logger);
     this.projectExtractor = new ProjectExtractor(this.logger);
     this.textProcessor = new TextProcessor(this.logger);
     this.embeddingEngine = new EmbeddingEngine(this.logger);
-    await this.ingestTextFile("./README.md", "readme");
-  }
 
-  async ingestTextFile(filePath: string, fileName: string) {
-    const indexFilePath: string = `./data/${fileName}.json`;
-    this.logger.info("Начало обработки файла", { filePath });
+    this.logger.info("RagService инициализирован", {
+      totalPaths: paths.length,
+      paths,
+      exclude: exclude.length > 0 ? exclude : "нет",
+    });
 
-    // 1. Загружаем текст
-    const text = await this.textExtractor.extract(filePath);
-    +"\n" + (await this.projectExtractor.extractFromDirectory("./src"));
-
-    // 2. Разбиваем на чанки
-    const chunks = this.textProcessor.split(text, 100, 50);
-
-    // 3. Загружаем существующий индекс
-    const existingHashes = await this.loadExistingHashes(indexFilePath);
-
-    // 4. Дедупликация
-    const newChunks = this.textProcessor.deduplicate(chunks, existingHashes);
-
-    // 5. Генерируем эмбеддинги и добавляем в индекс
-    for (const chunk of newChunks) {
-      let success = false;
-      let attempts = 0;
-
-      while (!success && attempts < 3) {
-        try {
-          attempts++;
-          await this.embeddingEngine.addChunk(chunk);
-          success = true;
-        } catch (err: any) {
-          this.logger.warn("Повторная попытка генерации эмбеддинга", {
-            chunkId: chunk.id,
-            attempt: attempts,
-          });
-          await new Promise((r) => setTimeout(r, Math.pow(2, attempts) * 200));
-        }
+    for (const path of paths) {
+      try {
+        await this.ingest(path, exclude);
+      } catch (err) {
+        this.logger.error("Ошибка при инжесте пути", {
+          path,
+          error: (err as Error).message,
+        });
       }
     }
 
-    // 6. Сохраняем
-    await this.saveIndex(indexFilePath);
-
-    this.logger.info("PDF инжест завершён", {
-      newChunks: newChunks.length,
+    this.logger.info("Инициализация завершена", {
       totalChunks: this.embeddingEngine.getChunkCount(),
     });
   }
 
+  /**
+   * Приватный метод: инжест одного пути с исключениями
+   */
+  private async ingest(path: string, exclude: string[]): Promise<void> {
+    const stats = await stat(path);
+    const name = basename(path, extname(path));
+    const indexFilePath = join("./data", `${name}.json`);
+
+    this.logger.info("Начало инжеста", { path });
+
+    let documents: ExtractedDocument[] = [];
+
+    if (stats.isFile()) {
+      const doc = await this.projectExtractor.extractFromFile(path);
+      if (doc) documents.push(doc);
+    } else if (stats.isDirectory()) {
+      documents = await this.projectExtractor.extractFromDirectory(
+        path,
+        exclude
+      );
+    } else {
+      this.logger.warn("Путь не является файлом или директорией", { path });
+      return;
+    }
+
+    const existingHashes = await this.loadExistingHashes(indexFilePath);
+
+    for (const { text, mode } of documents) {
+      const chunks = this.textProcessor.split(text, 100, 50, mode);
+      const newChunks = this.textProcessor.deduplicate(chunks, existingHashes);
+
+      for (const chunk of newChunks) {
+        let success = false;
+        let attempts = 0;
+
+        while (!success && attempts < 3) {
+          try {
+            attempts++;
+            await this.embeddingEngine.addChunk(chunk);
+            success = true;
+          } catch (err: any) {
+            this.logger.warn("Повторная попытка", {
+              chunkId: chunk.id,
+              attempt: attempts,
+            });
+            await new Promise((r) =>
+              setTimeout(r, Math.pow(2, attempts) * 200)
+            );
+          }
+        }
+      }
+    }
+
+    await this.saveIndex(indexFilePath);
+
+    this.logger.info("Инжест завершён", {
+      source: path,
+      totalDocuments: documents.length,
+      indexFile: indexFilePath,
+    });
+  }
+
+  /**
+   * Поиск по векторной базе
+   */
   async search(query: string, topK: number = 5, minScore: number = 0.7) {
     return await this.embeddingEngine.search(query, topK, minScore);
   }
 
+  /**
+   * Загрузка существующих хешей из файла
+   */
   private async loadExistingHashes(path: string): Promise<Set<string>> {
     const hashes = new Set<string>();
     try {
@@ -83,12 +121,15 @@ export class RagService {
       const data = JSON.parse(content);
       this.embeddingEngine.deserialize(data);
       data.forEach((c: any) => hashes.add(c.hash));
-    } catch (err: any) {
+    } catch (err) {
       this.logger.warn("Индекс не найден или повреждён", { path });
     }
     return hashes;
   }
 
+  /**
+   * Сохранение индекса в файл
+   */
   private async saveIndex(path: string): Promise<void> {
     try {
       const dir = dirname(path);

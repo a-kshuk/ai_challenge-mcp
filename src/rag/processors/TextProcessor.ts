@@ -31,36 +31,70 @@ export class TextProcessor {
     return createHash("sha256").update(this.normalize(text)).digest("hex");
   }
 
+  /**
+   * Разбивает текст на чанки с поддержкой разных режимов
+   * @param text - исходный текст
+   * @param chunkSize - количество слов в чанке (игнорируется в режиме lines)
+   * @param overlap - количество перекрывающихся слов (только для words)
+   * @param mode - режим разбивки: 'words' или 'lines'
+   */
   split(
     text: string,
     chunkSize: number = 100,
-    overlap: number = 50
+    overlap: number = 50,
+    mode: "words" | "lines" = "words"
   ): TextChunk[] {
-    const words = text.split(/\s+/);
+    const rawChunks: string[] = [];
+
+    if (mode === "lines") {
+      // Разбивка по строкам — подходит для табличных данных
+      const lines = text.trim().split(/\n+/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed) {
+          rawChunks.push(trimmed);
+        }
+      }
+    } else {
+      // Стандартная разбивка по словам
+      const words = text.split(/\s+/).filter((word) => word.length > 0);
+      let start = 0;
+
+      while (start < words.length) {
+        const end = Math.min(start + chunkSize, words.length);
+        rawChunks.push(words.slice(start, end).join(" "));
+        if (end >= words.length) break;
+        start = end - overlap;
+      }
+    }
+
+    // Фильтрация, нумерация и хеширование
     const chunks: TextChunk[] = [];
-    let start = 0;
     let id = 0;
 
-    while (start < words.length) {
-      const end = start + chunkSize;
-      const rawText = words.slice(start, end).join(" ");
-      const cleanText = this.normalize(rawText);
-
+    for (const rawText of rawChunks) {
       if (this.isValid(rawText)) {
         chunks.push({
           id: id++,
           text: rawText,
-          hash: this.hash(cleanText),
+          hash: this.hash(rawText),
         });
       }
-
-      start = end - overlap;
     }
 
-    this.logger.info("Текст разбит на чанки", { chunkCount: chunks.length });
+    this.logger.info("Текст разбит на чанки", {
+      chunkCount: chunks.length,
+      mode,
+      chunkSize,
+      overlap,
+    });
+
     return chunks;
   }
 
+  /**
+   * Удаляет дубликаты чанков по хешу
+   */
   deduplicate(chunks: TextChunk[], existingHashes: Set<string>): TextChunk[] {
     const unique = chunks.filter((chunk) => !existingHashes.has(chunk.hash));
     this.logger.info("Дедупликация завершена", {
