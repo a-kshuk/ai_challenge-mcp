@@ -1,5 +1,3 @@
-// src/entrypoint/types.ts
-
 /**
  * Конфигурация для ChatProcessor
  */
@@ -14,15 +12,16 @@ export interface ChatProcessorConfig {
 /**
  * Базовый интерфейс для входных точек (CLI, Telegram, Agent и т.д.)
  */
-export interface AiEntryPoint<T = unknown> {
+
+export interface AiEntryPoint {
   /**
-   * Запуск entrypoint'а
+   * Настраивает ChatProcessor перед инициализацией.
+   * Вызывается до init().
    */
-  run(): Promise<T> | void;
+  configure(): Promise<void>;
 
   /**
-   * Опциональная конфигурация для ChatProcessor.
-   * Если не указана — используются значения по умолчанию.
+   * Основной метод запуска.
    */
-  chatProcessorConfig?: ChatProcessorConfig;
+  run(): Promise<void>;
 }

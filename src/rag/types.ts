@@ -1,7 +1,7 @@
 /**
  * Режим разбивки текста — влияет на логику TextProcessor.split()
  */
-export type ChunkingMode = "words" | "lines";
+export type ChunkingMode = "words" | "lines" | "code" | "markdown";
 
 /**
  * Документ, извлечённый из файла

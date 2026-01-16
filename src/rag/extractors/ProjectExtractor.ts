@@ -1,11 +1,11 @@
+import { Logger } from "winston";
+import { readdir, stat } from "fs/promises";
+import { minimatch } from "minimatch";
+import path from "path";
 import { TextExtractor } from "./TextExtractor";
 import { PdfExtractor } from "./PdfExtractor";
 import { XlsxExtractor } from "./XlsxExtractor";
-import { Logger } from "winston";
-import { readdir, stat } from "fs/promises";
-import path from "path";
-import { ExtractedDocument } from "../types";
-import { minimatch } from "minimatch";
+import { ChunkingMode, ExtractedDocument } from "../types";
 
 export class ProjectExtractor {
   private logger: Logger;
@@ -29,7 +29,7 @@ export class ProjectExtractor {
 
     try {
       let text = "";
-      let mode: "words" | "lines" = "words";
+      let mode: ChunkingMode = "words";
 
       if (ext === ".pdf") {
         text = await this.pdfExtractor.extract(filePath);
@@ -39,7 +39,7 @@ export class ProjectExtractor {
         mode = "lines";
       } else if (this.isTextExtension(ext)) {
         text = await this.textExtractor.extract(filePath);
-        mode = "words";
+        mode = this.isCodeExtension(ext) ? "code" : "words";
       } else {
         this.logger.debug("Формат файла не поддерживается", { filePath });
         return null;
@@ -98,7 +98,7 @@ export class ProjectExtractor {
 
           try {
             let text = "";
-            let mode: "words" | "lines" = "words";
+            let mode: ChunkingMode = "words";
 
             if (ext === ".pdf") {
               text = await this.pdfExtractor.extract(entryPath);
@@ -108,7 +108,13 @@ export class ProjectExtractor {
               mode = "lines";
             } else if (this.isTextExtension(ext)) {
               text = await this.textExtractor.extract(entryPath);
-              mode = "words";
+              if (ext === ".md") {
+                mode = "markdown";
+              } else if (this.isCodeExtension(ext)) {
+                mode = "code";
+              } else {
+                mode = "words";
+              }
             } else {
               this.logger.debug("Формат файла не поддерживается", {
                 filePath: entryPath,
@@ -142,6 +148,9 @@ export class ProjectExtractor {
     }
   }
 
+  /**
+   * Проверяет, является ли расширение текстовым
+   */
   private isTextExtension(ext: string): boolean {
     const textExtensions = [
       ".txt",
@@ -156,7 +165,40 @@ export class ProjectExtractor {
       ".yaml",
       ".yml",
       ".xml",
+      ".py",
+      ".java",
+      ".cpp",
+      ".c",
+      ".cs",
+      ".go",
+      ".rs",
+      ".php",
+      ".swift",
+      ".kt",
     ];
     return textExtensions.includes(ext);
+  }
+
+  /**
+   * Проверяет, является ли расширение кодом (требует режим 'code')
+   */
+  private isCodeExtension(ext: string): boolean {
+    const codeExtensions = [
+      ".ts",
+      ".js",
+      ".tsx",
+      ".jsx",
+      ".py",
+      ".java",
+      ".cpp",
+      ".c",
+      ".cs",
+      ".go",
+      ".rs",
+      ".php",
+      ".swift",
+      ".kt",
+    ];
+    return codeExtensions.includes(ext);
   }
 }
