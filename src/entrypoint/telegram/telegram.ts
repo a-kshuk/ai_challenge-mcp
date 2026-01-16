@@ -1,6 +1,7 @@
 import { AiEntryPoint } from "../types";
 import { ChatProcessor } from "../../ai-agent";
 import { Telegraf, Context } from "telegraf";
+import { loadMarkdownPrompt } from "../../utils/markdown-loader";
 
 interface SessionState {
   userName?: string;
@@ -9,21 +10,6 @@ interface SessionState {
 const userSessions = new Map<number, SessionState>();
 
 export class TelegramEntryPoint implements AiEntryPoint {
-  // Добавляем конфигурацию
-  chatProcessorConfig = {
-    systemPrompt: `Ты — ассистент поддержки в Telegram. Ты должен:
-1. Узнать имя пользователя.
-2. Выяснить проблему.
-3. Предложить решение, используя только данные из RAG.
-4. Никогда не выдавать приватные данные.
-Говори вежливо и по-русски.`,
-
-    rag: {
-      paths: ["_files/Шаблоны.xlsx", "_files/Документация.pdf"],
-      exclude: ["**/temp/**", "**/*.log"],
-    },
-  };
-
   private bot: Telegraf<Context>;
 
   constructor(
@@ -34,6 +20,20 @@ export class TelegramEntryPoint implements AiEntryPoint {
       throw new Error("TELEGRAM_BOT_TOKEN не задан в .env");
     }
     this.bot = new Telegraf<Context>(botToken);
+  }
+
+  async configure(): Promise<void> {
+    const systemPrompt = await loadMarkdownPrompt(
+      "./src/entrypoint/telegram/systemPrompt.md",
+      "Ты — ассистент поддержки. Говори вежливо и по-русски."
+    );
+
+    this.processor.setConfig({
+      systemPrompt,
+      rag: {
+        paths: ["_files/Шаблоны.xlsx"],
+      },
+    });
   }
 
   async run(): Promise<void> {
@@ -55,6 +55,7 @@ export class TelegramEntryPoint implements AiEntryPoint {
       const message = ctx.message.text.trim();
       const session = userSessions.get(userId) || {};
 
+      // Шаг 1: Узнаём имя
       if (!session.userName) {
         if (
           message.length >= 2 &&
@@ -77,10 +78,11 @@ export class TelegramEntryPoint implements AiEntryPoint {
         console.log(`[Telegram] ${session.userName}: ${message}`);
         await ctx.reply("🤔 Думаю...");
 
-        const response = await this.processor.processMessage(
+        const response = await this.processor.processMessage({
           sessionId,
-          message
-        );
+          text: message,
+          minScore: 10,
+        });
         await ctx.reply(response.message);
 
         if (response.tools.length > 0) {
@@ -99,6 +101,6 @@ export class TelegramEntryPoint implements AiEntryPoint {
     });
 
     await this.bot.launch();
-    console.log("✅ Telegram-бот запущен (с кастомным system prompt)");
+    console.log("✅ Telegram-бот запущен");
   }
 }

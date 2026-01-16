@@ -6,25 +6,12 @@ import { TelegramEntryPoint } from "./telegram/telegram";
 
 export async function selectEntrypoint(): Promise<AiEntryPoint> {
   const args = process.argv.slice(2);
+  const processor = new ChatProcessor("ollama");
 
-  // Общая конфигурация
-  const config: ChatProcessorConfig = {
-    systemPrompt: `Ты — ассистент поддержки в Telegram. Ты должен:
-1. Узнать имя пользователя.
-2. Выяснить проблему.
-3. Предложить решение, используя только данные из RAG.
-4. Никогда не выдавать приватные данные.
-Говори вежливо и по-русски.`,
-    rag: {
-      paths: ["_files/Шаблоны.xlsx"],
-    },
-  };
-
-  const processor = new ChatProcessor(config);
-  await processor.init();
+  let entrypoint: AiEntryPoint;
 
   if (args.includes("--cli")) {
-    return new CliEntryPoint(processor);
+    entrypoint = new CliEntryPoint(processor);
   } else if (args.includes("--agent")) {
     const modeArg = args.find((arg) => arg.startsWith("--mode="));
     const mode = modeArg ? (modeArg.split("=")[1] as AgentMode) : undefined;
@@ -35,9 +22,9 @@ export async function selectEntrypoint(): Promise<AiEntryPoint> {
       throw new Error("Не указан или неверно указан режим агента");
     }
 
-    return new AgentEntryPoint(processor, mode);
+    entrypoint = new AgentEntryPoint(processor, mode);
   } else if (args.includes("--telegram")) {
-    return new TelegramEntryPoint(processor);
+    entrypoint = new TelegramEntryPoint(processor);
   } else {
     console.log("Доступные режимы:");
     console.log("  --cli               Запуск интерактивного режима");
@@ -46,17 +33,14 @@ export async function selectEntrypoint(): Promise<AiEntryPoint> {
     console.log("  --telegram          Запуск Telegram-бота");
     throw new Error("Не указан режим запуска");
   }
-}
 
-// Опционально: загрузка system prompt из файла
-async function loadSystemPrompt(): Promise<string> {
-  try {
-    const fs = await import("fs/promises");
-    return await fs.readFile(
-      "src/entrypoint/telegram/systemPrompt.md",
-      "utf-8"
-    );
-  } catch {
-    return "Вы — помощник поддержки. Отвечайте вежливо и по делу.";
+  // 🔧 Если entrypoint умеет настраивать processor — делаем это
+  if (entrypoint.configure) {
+    await entrypoint.configure();
   }
+
+  // Инициализируем processor после настройки
+  await processor.init();
+
+  return entrypoint;
 }
