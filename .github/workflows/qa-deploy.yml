@@ -7,9 +7,6 @@ on:
 jobs:
   build-and-ship:
     runs-on: ubuntu-latest
-    outputs:
-      image_path: ai-mcp.tar.gz
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,31 +27,30 @@ jobs:
         run: |
           docker build -t ai-mcp:latest .
 
-      - name: Save image to tar.gz
+      - name: Save Docker image to .tar.gz
         run: |
           docker save ai-mcp:latest | gzip > ai-mcp.tar.gz
 
       - name: Upload Docker image as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docker-image-qa
           path: ai-mcp.tar.gz
-          retention-days: 1 # Чистим быстро — не нужно хранить надолго
+          retention-days: 1 # Автоочистка через день
 
   deploy-qa:
     needs: build-and-ship
     runs-on: ubuntu-latest
-    environment: qa
+    environment: qa # Для защиты и аудита (можно добавить approval)
 
     steps:
-      - name: Download Docker image
-        uses: actions/download-artifact@v3
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
         with:
           name: docker-image-qa
           path: ./tmp
-          # run-after: upload
 
-      - name: Deploy to QA via SSH
+      - name: Deploy to QA server via SSH
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.QA_HOST }}
@@ -65,8 +61,10 @@ jobs:
             set -e
             cd /opt/ai-mcp
 
-            echo "📦 Receiving new image..."
-            mkdir -p ./tmp
+            echo "📥 Cleaning up old files..."
+            rm -f ./tmp/ai-mcp.tar.gz.b64
+
+            echo "📦 Encoding new image..."
             cat > ./tmp/ai-mcp.tar.gz.b64 << 'EOF'
             $(base64 < "./tmp/ai-mcp.tar.gz")
             EOF
@@ -75,11 +73,11 @@ jobs:
             base64 -d ./tmp/ai-mcp.tar.gz.b64 | gunzip | docker load
             rm -f ./tmp/ai-mcp.tar.gz.b64
 
-            echo "🧹 Stopping old container..."
+            echo "🧹 Stopping and removing old container..."
             docker stop ai-mcp || true
             docker rm ai-mcp || true
 
-            echo "🚀 Starting new container..."
+            echo "🚀 Running new container..."
             docker run -d \
               --name ai-mcp \
               --restart unless-stopped \
@@ -88,4 +86,4 @@ jobs:
               -e DEBUG=true \
               ai-mcp:latest
 
-            echo "✅ Deployment successful!"
+            echo "✅ Deployment to QA successful!"
