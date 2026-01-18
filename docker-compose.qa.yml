@@ -1,0 +1,13 @@
+# docker-compose.qa.yml
+version: "3.8"
+services:
+  ai-mcp:
+    image: ai-mcp:latest
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=qa
+      - DEBUG=true
+    ports:
+      - "3000:3000"
+    # volumes:
+    #   - ./logs:/app/logs

@@ -63,7 +63,6 @@ export class AgentEntryPoint implements AiEntryPoint {
     const response = await this.processor.processMessage({
       sessionId,
       text: prompt,
-      minScore: 30,
     });
     const end = Date.now();
     const durationSec = ((end - start) / 1000).toFixed(2);

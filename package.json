@@ -10,7 +10,8 @@
     "mcp": "node dist/mcp/index.js",
     "mcp-inspect": "mcp-inspector yarn mcp",
     "agent:precommit": "ts-node src/index.ts --agent --mode=precommit",
-    "dev:telegram": "ts-node src/index.ts --telegram"
+    "dev:telegram": "ts-node src/index.ts --telegram",
+    "ts": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
