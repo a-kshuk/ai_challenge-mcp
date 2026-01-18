@@ -1,0 +1,74 @@
+name: 🚀 Deploy to QA (Docker)
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-qa:
+    runs-on: ubuntu-latest
+    if: contains(github.event.commit_message, '[ci qa]')
+    environment: qa
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build project
+        run: yarn build
+
+      - name: Build Docker image
+        run: |
+          docker build -t ai-mcp:latest .
+
+      - name: Save image for transfer
+        run: |
+          docker save ai-mcp:latest | gzip > ai-mcp.tar.gz
+
+      - name: Encode Docker image to base64
+        id: encode
+        run: |
+          echo "IMAGE_DATA=$(cat ai-mcp.tar.gz | base64)" >> $GITHUB_ENV
+
+      - name: Deploy to QA via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.QA_HOST }}
+          username: ${{ secrets.QA_USER }}
+          key: ${{ secrets.QA_SSH_KEY }}
+          port: ${{ secrets.QA_PORT }}
+          script: |
+            set -e
+            cd /opt/ai-mcp
+
+            echo "📥 Receiving Docker image (base64)..."
+            cat > ai-mcp.tar.gz.b64 << 'EOF'
+            ${{ env.IMAGE_DATA }}
+            EOF
+
+            echo "📦 Decoding and loading Docker image..."
+            base64 -d ai-mcp.tar.gz.b64 | gunzip | docker load
+
+            echo "🧹 Stopping and removing old container..."
+            docker stop ai-mcp || true
+            docker rm ai-mcp || true
+
+            echo "🚀 Starting new container..."
+            docker run -d \
+              --name ai-mcp \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              -e NODE_ENV=qa \
+              -e DEBUG=true \
+              ai-mcp:latest
+
+            echo "✅ Deployment successful!"

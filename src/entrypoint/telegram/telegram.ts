@@ -81,7 +81,7 @@ export class TelegramEntryPoint implements AiEntryPoint {
         const response = await this.processor.processMessage({
           sessionId,
           text: message,
-          minScore: 10,
+          topK: 15,
         });
         await ctx.reply(response.message);
 
