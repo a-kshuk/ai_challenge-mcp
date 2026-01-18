@@ -5,10 +5,10 @@ on:
     branches: [main]
 
 jobs:
-  deploy-qa:
+  build-and-ship:
     runs-on: ubuntu-latest
-    # if: contains(github.event.commit_message, '[ci qa]')
-    environment: qa
+    outputs:
+      image_path: ai-mcp.tar.gz
 
     steps:
       - name: Checkout code
@@ -30,20 +30,29 @@ jobs:
         run: |
           docker build -t ai-mcp:latest .
 
-      - name: Save image for transfer
+      - name: Save image to tar.gz
         run: |
           docker save ai-mcp:latest | gzip > ai-mcp.tar.gz
 
-      - name: Encode Docker image to base64
-        id: encode
-        run: |
-          echo "IMAGE_DATA=$(cat ai-mcp.tar.gz | base64)" >> $GITHUB_ENV
+      - name: Upload Docker image as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-image-qa
+          path: ai-mcp.tar.gz
+          retention-days: 1 # Чистим быстро — не нужно хранить надолго
 
-      - name: Encode Docker image to base64 and save safely
-        run: |
-          echo "IMAGE_DATA<<EOF" >> $GITHUB_ENV
-          base64 ai-mcp.tar.gz
-          echo "EOF" >> $GITHUB_ENV
+  deploy-qa:
+    needs: build-and-ship
+    runs-on: ubuntu-latest
+    environment: qa
+
+    steps:
+      - name: Download Docker image
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image-qa
+          path: ./tmp
+          # run-after: upload
 
       - name: Deploy to QA via SSH
         uses: appleboy/ssh-action@v0.1.10
@@ -56,15 +65,17 @@ jobs:
             set -e
             cd /opt/ai-mcp
 
-            echo "📥 Receiving Docker image (base64)..."
-            cat > ai-mcp.tar.gz.b64 << 'EOF'
-            ${{ env.IMAGE_DATA }}
+            echo "📦 Receiving new image..."
+            mkdir -p ./tmp
+            cat > ./tmp/ai-mcp.tar.gz.b64 << 'EOF'
+            $(base64 < "./tmp/ai-mcp.tar.gz")
             EOF
 
             echo "📦 Decoding and loading Docker image..."
-            base64 -d ai-mcp.tar.gz.b64 | gunzip | docker load
+            base64 -d ./tmp/ai-mcp.tar.gz.b64 | gunzip | docker load
+            rm -f ./tmp/ai-mcp.tar.gz.b64
 
-            echo "🧹 Stopping and removing old container..."
+            echo "🧹 Stopping old container..."
             docker stop ai-mcp || true
             docker rm ai-mcp || true
 
