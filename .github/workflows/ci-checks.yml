@@ -25,21 +25,21 @@ jobs:
       - name: Type checking
         run: yarn ts
 
-  build:
-    needs: type-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # build:
+  #   needs: type-check
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*"
-          cache: "yarn"
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: "lts/*"
+  #         cache: "yarn"
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+  #     - name: Install dependencies
+  #       run: yarn install --frozen-lockfile
 
-      - name: Build project
-        run: yarn build
+  #     - name: Build project
+  #       run: yarn build

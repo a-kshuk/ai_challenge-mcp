@@ -2,7 +2,7 @@ name: 🚀 Deploy to QA (Docker)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
 
 jobs:
   deploy-qa:
@@ -38,6 +38,12 @@ jobs:
         id: encode
         run: |
           echo "IMAGE_DATA=$(cat ai-mcp.tar.gz | base64)" >> $GITHUB_ENV
+
+      - name: Encode Docker image to base64 and save safely
+        run: |
+          echo "IMAGE_DATA<<EOF" >> $GITHUB_ENV
+          base64 ai-mcp.tar.gz
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Deploy to QA via SSH
         uses: appleboy/ssh-action@v0.1.10
