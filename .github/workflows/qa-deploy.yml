@@ -2,7 +2,7 @@ name: 🚀 Deploy to QA (Docker)
 
 on:
   push:
-    branches: [develop]
+    branches: [main, develop]
 
 jobs:
   deploy-qa:
