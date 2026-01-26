@@ -2,16 +2,17 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import "dotenv/config";
 import { GitTools } from "./gitTools";
-import { McpTool } from "./types";
+import { SystemTools } from "./systemTools";
 import { GithubTools } from "./githubTools";
+import { McpTool } from "./types";
 
-// Инициализация сервисов
 const server = new McpServer({
   name: "demo-server",
   version: "1.0.0",
 });
 
-const TOOLS: McpTool<any>[] = [...GitTools, ...GithubTools];
+// Инициализация инструментов
+const TOOLS: McpTool<any>[] = [...GitTools, ...SystemTools, ...GithubTools];
 
 TOOLS.forEach((tool) => {
   try {
@@ -21,6 +22,5 @@ TOOLS.forEach((tool) => {
   }
 });
 
-// Подключаем сервер
 const transport = new StdioServerTransport();
 server.connect(transport);
