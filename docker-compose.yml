@@ -1,0 +1,23 @@
+services:
+  whisper-gpu:
+    build: .
+    profiles:
+      - gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ./models:/root/.cache/whisper
+      - ./audio-files:/app
+
+  whisper-cpu:
+    build: .
+    profiles:
+      - cpu
+    volumes:
+      - ./models:/root/.cache/whisper
+      - ./_audio-files:/app

@@ -61,5 +61,6 @@ temp/
 .DS_Store
 Thumbs.db
 
-
 _files
+_audio-files
+models
